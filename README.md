@@ -49,3 +49,7 @@ The manifest targets the Stream Deck Node.js 24 runtime.
 ## Version history
 
 The original v1.0 source is preserved in the `v1.0` Git tag, and its original installer is in [`versions`](versions/). The current source and release are v3.5. The intermediate installers were overwritten during development and are unavailable. The original v1.0 interface is in Portuguese.
+
+## License
+
+DeckProxy is licensed under [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](LICENSE) (CC BY-NC-SA 4.0).
