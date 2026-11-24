@@ -1,27 +1,83 @@
 <!doctype html>
-<html lang="pt"><meta charset="utf-8"><title>Métrica do proxy</title>
+<html lang="en"><meta charset="utf-8"><title>DeckProxy</title>
 <style>
 :root{color-scheme:dark;font:13px system-ui}body{margin:12px;background:#292929;color:#eee}label{display:block;margin:10px 0 4px}input:not([type=checkbox]),select{display:block;box-sizing:border-box;width:100%;padding:6px}small{display:block;color:#ccc}button{margin:12px 0;padding:5px 12px}fieldset{border:0;padding:0;margin:0}h3{margin-bottom:0}
 </style>
 <form id="form"><fieldset id="fields" disabled>
-<label for="metric">Mostrar nesta tecla</label>
-<select id="metric"><option value="hour">Pedidos nesta hora</option><option value="day">Pedidos hoje</option><option value="week">Pedidos nesta semana</option><option value="month">Pedidos neste mês</option><option value="quota">Quota restante (%)</option></select>
-<div id="quota" hidden><label for="auth">Índice da credencial (auth_index)</label><input id="auth"><label for="windowName">Janela de quota (opcional)</label><input id="windowName"><small>Em branco, mostra a menor percentagem disponível para esta credencial.</small></div>
-<h3>Ligação partilhada pelas teclas</h3>
-<label for="server">Endereço do proxy</label><input id="server" type="url" required placeholder="http://127.0.0.1:8317">
-<label for="key">Chave de gestão</label><input id="key" type="password" autocomplete="off" required>
-<label><input type="checkbox" id="collect"> Recolher pedidos da fila</label><small>Cada leitura remove os registos da fila do proxy. Ative se esta fila estiver reservada ao Stream Deck.</small>
-<button>Guardar</button> <output id="status"></output>
+<div id="legacyMetric" hidden><label for="metric">Display</label>
+<select id="metric"><option value="hour">Requests this hour</option><option value="day">Requests today</option><option value="week">Requests this week</option><option value="month">Requests this month</option><option value="codex5">Codex remaining — 5 hours (%)</option><option value="codexweek">Codex remaining — week (%)</option><option value="quota">Other provider quota (%)</option><option value="codex">Codex usage remaining</option><option value="weeklyremaining">Usage remaining</option></select></div>
+<div id="requestsPeriod" hidden>
+<label for="period">Request period</label>
+<select id="period"><option value="hour">This hour</option><option value="day">Today</option><option value="week">This week</option><option value="month">This month</option></select>
+<h3>Appearance</h3>
+<label for="requestTextColor">Text color</label><input type="color" id="requestTextColor" value="#ffffff">
+<label for="requestAccentColor">Accent color</label><input type="color" id="requestAccentColor" value="#8eedc2">
+<label><input type="checkbox" id="showPeriod" checked> Show period label</label>
+</div>
+<div id="quota" hidden><label for="auth">Account</label><select id="auth"><option value="">Select an account</option></select><button type="button" id="reload">Refresh accounts</button><small id="credentialsStatus"></small><div id="appearance" hidden>
+<h3>Appearance</h3>
+<label for="goodColor">Normal color</label><input type="color" id="goodColor" value="#4aebb0">
+<label for="mediumColor">Medium quota color</label><input type="color" id="mediumColor" value="#ffd34e">
+<label for="mediumThreshold">Medium quota threshold (% remaining)</label><input type="number" id="mediumThreshold" min="0" max="100" value="80">
+<label for="lowColor">Low quota color</label><input type="color" id="lowColor" value="#fa554f">
+<label for="threshold">Low quota threshold (% remaining)</label><input type="number" id="threshold" min="0" max="100" value="20">
+<label><input type="checkbox" id="blink"> Blink when quota is low</label>
+</div><div id="quotaWindow"><label for="windowName">Quota window (optional)</label><input id="windowName"><small>Leave blank to show the lowest available percentage.</small></div></div>
+<div id="backgroundOptions" hidden>
+<label for="backgroundColor">Background color</label><input type="color" id="backgroundColor" value="#101e22">
+</div>
+<h3>Connection shared by all actions</h3>
+<label for="server">Proxy address</label><input id="server" type="url" required placeholder="http://127.0.0.1:8317">
+<label for="key">Management key</label><input id="key" type="password" autocomplete="off" required>
+<button type="button" id="testConnection">Test connection</button> <output id="connectionStatus" aria-live="polite"></output>
+<label><input type="checkbox" id="collect"> Collect requests from the queue</label><small>Enables request counts for the current hour, day, week and month. The plugin reads new records from the proxy queue and stores counts on this computer while Stream Deck is running. Reading removes records from the queue, so other consumers may miss them. Usage statistics must be enabled on the proxy. Quota actions do not require this option.</small>
+<output id="status" aria-live="polite"></output>
 </fieldset></form>
 <script>
 const el = id => document.getElementById(id);
-function toggle() { el('quota').hidden = el('metric').value !== 'quota'; }
+function toggle() {
+  const metric = el('metric').value;
+  el('quota').hidden = !['quota', 'codex', 'codex5', 'codexweek', 'weeklyremaining'].includes(metric);
+  el('quotaWindow').hidden = metric !== 'quota';
+  el('appearance').hidden = metric !== 'weeklyremaining';
+}
 el('metric').onchange = toggle;
 window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
-  const action = JSON.parse(actionInfo).payload.settings;
-  el('metric').value = action.metric || 'hour';
-  el('auth').value = action.auth || '';
+  const actionInfoObject = JSON.parse(actionInfo);
+  const action = actionInfoObject.payload.settings;
+  const actionContext = uuid;
+  const actionId = actionInfoObject.action;
+  let requestId = 0;
+  let testId = 0;
+  let credentialsTimer;
+  let testTimer;
+  let saveTimer;
+  let dirtyGlobal = false;
+  let dirtyAction = false;
+  let loaded = false;
+  let localGlobal;
+  let localAction = {...action};
+  const suffix = actionId.split('.').pop();
+  const legacy = suffix === 'metric';
+  el('legacyMetric').hidden = !legacy;
+  el('requestsPeriod').hidden = suffix !== 'requests';
+  el('backgroundOptions').hidden = !['requests', 'weeklyremaining'].includes(suffix) && !(legacy && action.metric === 'weeklyremaining');
+  el('period').value = ['hour', 'day', 'week', 'month'].includes(action.period) ? action.period : 'hour';
+  el('metric').value = legacy ? (action.metric || 'hour') : suffix;
+  if (action.auth) {
+    el('auth').add(new Option('Saved account (' + action.auth + ')', action.auth, true, true));
+  }
   el('windowName').value = action.window || '';
+  el('goodColor').value = action.goodColor || '#4aebb0';
+  el('mediumColor').value = action.mediumColor || '#ffd34e';
+  el('mediumThreshold').value = action.mediumThreshold ?? 80;
+  el('requestTextColor').value = action.requestTextColor || '#ffffff';
+  el('requestAccentColor').value = action.requestAccentColor || '#8eedc2';
+  el('showPeriod').checked = action.showPeriod !== false;
+  el('backgroundColor').value = action.backgroundColor || (suffix === 'requests' ? '#123239' : '#101e22');
+  el('lowColor').value = action.lowColor || '#fa554f';
+  el('threshold').value = action.threshold ?? 20;
+  el('blink').checked = !!action.blink;
   toggle();
   const ws = new WebSocket('ws://127.0.0.1:' + port);
   function send(event, payload) { ws.send(JSON.stringify({event, context:uuid, payload})); }
@@ -29,21 +85,136 @@ window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionI
     ws.send(JSON.stringify({event:registerEvent, uuid}));
     send('getGlobalSettings');
   };
+  function loadCredentials() {
+    const key = el('key').value.trim();
+    const server = el('server').value.trim();
+    requestId++;
+    if (!key) {
+      el('credentialsStatus').textContent = 'Enter the proxy address and management key.';
+      return;
+    }
+    el('credentialsStatus').textContent = 'Loading accounts…';
+    clearTimeout(credentialsTimer);
+    const current = requestId;
+    credentialsTimer = setTimeout(() => {
+      if (current === requestId) el('credentialsStatus').textContent = 'The plugin did not respond. Restart Stream Deck and try again.';
+    }, 12000);
+    ws.send(JSON.stringify({
+      event:'sendToPlugin', action:actionId, context:actionContext,
+      payload:{type:'credentials', requestId, key, server}
+    }));
+  }
+  el('reload').onclick = loadCredentials;
+  el('testConnection').onclick = () => {
+    testId++;
+    const current = testId;
+    clearTimeout(testTimer);
+    if (!el('server').value.trim() || !el('key').value.trim()) {
+      el('connectionStatus').textContent = 'Enter the proxy address and management key.';
+      return;
+    }
+    el('connectionStatus').textContent = 'Testing…';
+    ws.send(JSON.stringify({
+      event:'sendToPlugin', action:actionId, context:actionContext,
+      payload:{type:'testConnection', requestId:current, key:el('key').value.trim(), server:el('server').value.trim()}
+    }));
+    testTimer = setTimeout(() => {
+      if (current === testId) el('connectionStatus').textContent = 'The plugin did not respond. Restart Stream Deck and try again.';
+    }, 12000);
+  };
+  el('metric').onchange = () => {
+    toggle();
+    if (!el('quota').hidden) loadCredentials();
+  };
+  for (const id of ['server', 'key']) {
+    el(id).addEventListener('input', () => {
+      requestId++;
+      testId++;
+      clearTimeout(credentialsTimer);
+      clearTimeout(testTimer);
+      el('connectionStatus').textContent = '';
+      el('credentialsStatus').textContent = 'Refresh the account list.';
+    });
+  }
   ws.onmessage = ({data}) => {
     const msg = JSON.parse(data);
-    if (msg.event !== 'didReceiveGlobalSettings') return;
-    const global = msg.payload.settings;
-    el('server').value = global.server || 'http://127.0.0.1:8317';
-    el('key').value = global.key || '';
-    el('collect').checked = !!global.collect;
-    el('fields').disabled = false;
+    if (msg.event === 'didReceiveGlobalSettings') {
+      const global = msg.payload.settings;
+      if (!dirtyGlobal) {
+        const changed = !localGlobal || localGlobal.server !== (global.server || 'http://127.0.0.1:8317') ||
+          localGlobal.key !== (global.key || '');
+        el('server').value = global.server || 'http://127.0.0.1:8317';
+        el('key').value = global.key || '';
+        el('collect').checked = !!global.collect;
+        localGlobal = {...global, server:el('server').value, key:el('key').value, collect:el('collect').checked};
+        if (changed && !el('quota').hidden) loadCredentials();
+      }
+      el('fields').disabled = false;
+      loaded = true;
+      return;
+    }
+    if (msg.event !== 'sendToPropertyInspector') return;
+    if (msg.payload?.type === 'testConnection' && msg.payload.requestId === testId) {
+      clearTimeout(testTimer);
+      el('connectionStatus').textContent = msg.payload.error || 'Connection successful. Accounts found: ' + msg.payload.files.length + '.';
+      return;
+    }
+    if (msg.payload?.type !== 'credentials' || msg.payload.requestId !== requestId) return;
+    clearTimeout(credentialsTimer);
+    if (msg.payload.error) {
+      el('credentialsStatus').textContent = 'Unable to load accounts: ' + msg.payload.error;
+      return;
+    }
+    const selected = el('auth').value;
+    el('auth').replaceChildren(new Option('Select an account', ''));
+    for (const file of msg.payload.files) {
+      const label = file.provider ? file.name + ' (' + file.provider + ')' : file.name;
+      el('auth').add(new Option(label + ' — ' + file.index, file.index));
+    }
+    if (selected && !msg.payload.files.some(file => file.index === selected)) {
+      el('auth').add(new Option('Saved account unavailable (' + selected + ')', selected));
+    }
+    el('auth').value = selected;
+    el('credentialsStatus').textContent = msg.payload.files.length ? '' : 'No accounts found.';
   };
-  el('form').onsubmit = event => {
-    event.preventDefault();
-    send('setGlobalSettings', {server:el('server').value.trim(), key:el('key').value.trim(), collect:el('collect').checked});
-    send('setSettings', {metric:el('metric').value, auth:el('auth').value.trim(), window:el('windowName').value.trim()});
-    el('status').textContent = 'Guardado';
-  };
-  el('form').oninput = () => el('status').textContent = '';
+  function saveChanges() {
+    clearTimeout(saveTimer);
+    if (!loaded || ws.readyState !== WebSocket.OPEN) return;
+    if (dirtyGlobal) {
+      const connectionChanged = !localGlobal || localGlobal.server !== el('server').value.trim() || localGlobal.key !== el('key').value.trim();
+      localGlobal = {...localGlobal, server:el('server').value.trim(), key:el('key').value.trim(), collect:el('collect').checked};
+      send('setGlobalSettings', localGlobal);
+      dirtyGlobal = false;
+      if (connectionChanged && !el('quota').hidden && el('server').value.trim() && el('key').value.trim()) loadCredentials();
+    }
+    if (dirtyAction) {
+      if (!el('threshold').validity.valid || !el('mediumThreshold').validity.valid) {
+        el('status').textContent = 'Thresholds must be between 0 and 100.';
+        return;
+      }
+      localAction = {...localAction, metric:el('metric').value, period:el('period').value, auth:el('auth').value,
+        window:el('windowName').value.trim(), goodColor:el('goodColor').value, lowColor:el('lowColor').value,
+        threshold:Number(el('threshold').value), blink:el('blink').checked,
+        mediumColor:el('mediumColor').value, mediumThreshold:Number(el('mediumThreshold').value),
+        backgroundColor:el('backgroundColor').value, requestTextColor:el('requestTextColor').value,
+        requestAccentColor:el('requestAccentColor').value, showPeriod:el('showPeriod').checked};
+      ws.send(JSON.stringify({event:'setSettings', action:actionId, context:actionContext, payload:localAction}));
+      dirtyAction = false;
+    }
+    el('status').textContent = 'Saved automatically';
+  }
+  function scheduleSave(event) {
+    if (!loaded || !event.target.id) return;
+    if (['server', 'key', 'collect'].includes(event.target.id)) dirtyGlobal = true;
+    else dirtyAction = true;
+    el('status').textContent = 'Saving…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveChanges, 600);
+  }
+  el('form').addEventListener('input', scheduleSave);
+  el('form').addEventListener('change', scheduleSave);
+  el('form').addEventListener('focusout', () => { if (dirtyGlobal || dirtyAction) saveChanges(); });
+  el('form').onsubmit = event => { event.preventDefault(); saveChanges(); };
+  window.addEventListener('pagehide', saveChanges);
 };
 </script></html>

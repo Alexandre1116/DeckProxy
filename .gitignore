@@ -1,0 +1,5 @@
+# Installers are distributed through GitHub Releases.
+*.streamDeckPlugin
+!versions/DeckProxy-v1.0.streamDeckPlugin
+node_modules/
+.DS_Store

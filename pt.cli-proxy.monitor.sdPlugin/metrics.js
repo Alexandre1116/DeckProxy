@@ -20,12 +20,12 @@ class History {
     this.sum = this.db.prepare('SELECT coalesce(sum(n),0) AS n FROM counts WHERE server=? AND minute BETWEEN ? AND ?');
   }
   record(server, rows) {
-    if (!Array.isArray(rows)) throw Error('Formato API');
+    if (!Array.isArray(rows)) throw Error('Invalid API data');
     this.db.exec('BEGIN');
     try {
       for (const row of rows) {
         const stamp = Date.parse(row?.timestamp);
-        if (!Number.isFinite(stamp)) throw Error('Formato API');
+        if (!Number.isFinite(stamp)) throw Error('Invalid API data');
         this.add.run(server, Math.floor(stamp / 60000) * 60000);
       }
       this.db.prepare('DELETE FROM counts WHERE minute < ?').run(Date.now() - 32 * 86400000);
@@ -46,8 +46,36 @@ function remaining(response, windowName) {
   const fractions = buckets.filter(bucket => !windowName || bucket.window === windowName)
     .map(bucket => bucket.remainingFraction)
     .filter(value => Number.isFinite(value) && value >= 0 && value <= 1);
-  if (!fractions.length) throw Error('Sem quota');
+  if (!fractions.length) throw Error('No quota');
   return Math.round(100 * Math.min(...fractions)) + '%';
 }
 
-module.exports = { History, remaining };
+
+function codexWindow(payload, period) {
+  const limit = payload.rate_limit ?? payload.rateLimit;
+  const primary = limit?.primary_window ?? limit?.primaryWindow;
+  const secondary = limit?.secondary_window ?? limit?.secondaryWindow;
+  const expected = period === 'five' ? 18000 : 604800;
+  const windows = [primary, secondary].filter(Boolean);
+  const duration = window => {
+    const value = window.limit_window_seconds ?? window.limitWindowSeconds;
+    return value === undefined || value === null || value === '' ? null : Number(value);
+  };
+  let selected = windows.find(window => duration(window) === expected);
+  if (!selected) {
+    const fallback = period === 'five' ? primary : secondary;
+    if (fallback && duration(fallback) === null) selected = fallback;
+  }
+  if (!selected) throw Error('No quota');
+  const raw = selected.used_percent ?? selected.usedPercent;
+  if (raw === undefined || raw === null || raw === '') throw Error('No quota');
+  const used = Number(raw);
+  if (!Number.isFinite(used) || used < 0 || used > 100) throw Error('No quota');
+  return {percent: Math.round(100 - used), resetAt: selected.reset_at ?? selected.resetAt, resetAfter: selected.reset_after_seconds ?? selected.resetAfterSeconds};
+}
+
+function codexRemaining(payload, period) {
+  return codexWindow(payload, period).percent + '%';
+}
+
+module.exports = { History, remaining, codexRemaining, codexWindow };

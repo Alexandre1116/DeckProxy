@@ -1,9 +1,9 @@
 {
   "UUID": "pt.cli-proxy.monitor",
-  "Name": "CLIProxyAPI",
-  "Description": "Consulta os pedidos e a quota disponível na CLIProxyAPI.",
-  "Author": "CLIProxyAPI Monitor",
-  "Version": "1.0.0.0",
+  "Name": "DeckProxy",
+  "Description": "Monitor CLIProxyAPI requests and remaining quota.",
+  "Author": "Alexandre1116",
+  "Version": "3.5.0.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "7.6"
@@ -23,13 +23,192 @@
   },
   "CodePath": "plugin.js",
   "Icon": "img/plugin",
-  "Category": "CLIProxyAPI",
+  "Category": "DeckProxy",
   "CategoryIcon": "img/action",
   "Actions": [
     {
       "UUID": "pt.cli-proxy.monitor.metric",
-      "Name": "Métrica do proxy",
-      "Tooltip": "Mostra pedidos ou quota. Prima para atualizar.",
+      "Name": "Metric (legacy)",
+      "Tooltip": "Configure an existing metric.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.requests",
+      "Name": "Requests",
+      "Tooltip": "Show the request count for a selected period. Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ]
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.hour",
+      "Name": "Requests this hour",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.day",
+      "Name": "Requests today",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.week",
+      "Name": "Requests this week",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.month",
+      "Name": "Requests this month",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.codex",
+      "Name": "Codex usage remaining",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.codex5",
+      "Name": "Codex 5-hour remaining",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.codexweek",
+      "Name": "Codex weekly remaining",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.quota",
+      "Name": "Other provider quota",
+      "Tooltip": "Press to refresh.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ],
+      "VisibleInActionsList": false
+    },
+    {
+      "UUID": "pt.cli-proxy.monitor.weeklyremaining",
+      "Name": "Usage remaining",
+      "Tooltip": "Show available usage windows. Press to refresh.",
       "Icon": "img/action",
       "PropertyInspectorPath": "settings.html",
       "Controllers": [
