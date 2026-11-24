@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt"><meta charset="utf-8"><title>Métrica do proxy</title>
+<style>
+:root{color-scheme:dark;font:13px system-ui}body{margin:12px;background:#292929;color:#eee}label{display:block;margin:10px 0 4px}input:not([type=checkbox]),select{display:block;box-sizing:border-box;width:100%;padding:6px}small{display:block;color:#ccc}button{margin:12px 0;padding:5px 12px}fieldset{border:0;padding:0;margin:0}h3{margin-bottom:0}
+</style>
+<form id="form"><fieldset id="fields" disabled>
+<label for="metric">Mostrar nesta tecla</label>
+<select id="metric"><option value="hour">Pedidos nesta hora</option><option value="day">Pedidos hoje</option><option value="week">Pedidos nesta semana</option><option value="month">Pedidos neste mês</option><option value="quota">Quota restante (%)</option></select>
+<div id="quota" hidden><label for="auth">Índice da credencial (auth_index)</label><input id="auth"><label for="windowName">Janela de quota (opcional)</label><input id="windowName"><small>Em branco, mostra a menor percentagem disponível para esta credencial.</small></div>
+<h3>Ligação partilhada pelas teclas</h3>
+<label for="server">Endereço do proxy</label><input id="server" type="url" required placeholder="http://127.0.0.1:8317">
+<label for="key">Chave de gestão</label><input id="key" type="password" autocomplete="off" required>
+<label><input type="checkbox" id="collect"> Recolher pedidos da fila</label><small>Cada leitura remove os registos da fila do proxy. Ative se esta fila estiver reservada ao Stream Deck.</small>
+<button>Guardar</button> <output id="status"></output>
+</fieldset></form>
+<script>
+const el = id => document.getElementById(id);
+function toggle() { el('quota').hidden = el('metric').value !== 'quota'; }
+el('metric').onchange = toggle;
+window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
+  const action = JSON.parse(actionInfo).payload.settings;
+  el('metric').value = action.metric || 'hour';
+  el('auth').value = action.auth || '';
+  el('windowName').value = action.window || '';
+  toggle();
+  const ws = new WebSocket('ws://127.0.0.1:' + port);
+  function send(event, payload) { ws.send(JSON.stringify({event, context:uuid, payload})); }
+  ws.onopen = () => {
+    ws.send(JSON.stringify({event:registerEvent, uuid}));
+    send('getGlobalSettings');
+  };
+  ws.onmessage = ({data}) => {
+    const msg = JSON.parse(data);
+    if (msg.event !== 'didReceiveGlobalSettings') return;
+    const global = msg.payload.settings;
+    el('server').value = global.server || 'http://127.0.0.1:8317';
+    el('key').value = global.key || '';
+    el('collect').checked = !!global.collect;
+    el('fields').disabled = false;
+  };
+  el('form').onsubmit = event => {
+    event.preventDefault();
+    send('setGlobalSettings', {server:el('server').value.trim(), key:el('key').value.trim(), collect:el('collect').checked});
+    send('setSettings', {metric:el('metric').value, auth:el('auth').value.trim(), window:el('windowName').value.trim()});
+    el('status').textContent = 'Guardado';
+  };
+  el('form').oninput = () => el('status').textContent = '';
+};
+</script></html>

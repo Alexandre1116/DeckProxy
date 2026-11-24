@@ -1,0 +1,47 @@
+{
+  "UUID": "pt.cli-proxy.monitor",
+  "Name": "CLIProxyAPI",
+  "Description": "Consulta os pedidos e a quota disponível na CLIProxyAPI.",
+  "Author": "CLIProxyAPI Monitor",
+  "Version": "1.0.0.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "7.6"
+  },
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "13"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Nodejs": {
+    "Version": "24"
+  },
+  "CodePath": "plugin.js",
+  "Icon": "img/plugin",
+  "Category": "CLIProxyAPI",
+  "CategoryIcon": "img/action",
+  "Actions": [
+    {
+      "UUID": "pt.cli-proxy.monitor.metric",
+      "Name": "Métrica do proxy",
+      "Tooltip": "Mostra pedidos ou quota. Prima para atualizar.",
+      "Icon": "img/action",
+      "PropertyInspectorPath": "settings.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "img/key",
+          "TitleAlignment": "middle",
+          "FontSize": 13
+        }
+      ]
+    }
+  ]
+}
