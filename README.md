@@ -48,7 +48,7 @@ The manifest targets the Stream Deck Node.js 24 runtime.
 
 ## Version history
 
-The original v1.0 source is preserved in the `v1.0` Git tag, and its original installer is in [`versions`](versions/). The current source and release are v3.5. The intermediate installers were overwritten during development and are unavailable. The original v1.0 interface is in Portuguese.
+The original v1.0 source is preserved in the `v1.0` Git tag, and its original installer is in [`versions`](versions/). The latest GitHub release is v3.5. The current source includes the v3.6 Marketplace package with SDK 3 support. The intermediate installers were overwritten during development and are unavailable. The original v1.0 interface is in Portuguese.
 
 ## License
 

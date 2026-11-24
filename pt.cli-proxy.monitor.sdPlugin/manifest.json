@@ -3,8 +3,8 @@
   "Name": "DeckProxy",
   "Description": "Monitor CLIProxyAPI requests and remaining quota.",
   "Author": "Alexandre1116",
-  "Version": "3.5.0.0",
-  "SDKVersion": 2,
+  "Version": "3.6.0.0",
+  "SDKVersion": 3,
   "Software": {
     "MinimumVersion": "7.6"
   },
